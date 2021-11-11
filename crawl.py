@@ -2,14 +2,14 @@
 from os import makedirs
 from os.path import join
 from csv import DictWriter
+from math import ceil
 from snscrape.modules.twitter import TwitterSearchScraper
-from itertools import islice
 
 hashtagfile = "hashtags.txt"
 outputdir = "mined-tweets"
 languages = ["en", "fr", "de", "ar"]
 dates = ["2020-03-01", "2021-09-01"]
-max_tweets = 1000
+count = 1000
 
 def read_hashtags(filename):
     hashtags = list()
@@ -19,9 +19,10 @@ def read_hashtags(filename):
     return hashtags
 
 def write_tweets(tweets, filename):
-    with open(filename, "a+", newline='') as csv_file:
+    with open(filename, "w", newline='') as csv_file:
         fieldnames = ["id", "date", "lang", "content"]
         writer = DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
         for tweet in tweets:
             writer.writerow(dict(zip(fieldnames, [tweet.id, tweet.date, tweet.lang, tweet.content])))
 
@@ -37,12 +38,16 @@ def crawl_tweets(hashtags, since=None, until=None):
     filename = join(outputdir, "-".join(filter(None, [since, until])) + ".csv")
     tweets, unique_contents = list(), set()
     for hashtag in hashtags:
+        mined = 0
         scraper = TwitterSearchScraper(query=" ".join(filter(None, [hashtag, since, until, langs, filter_retweets])))
-        for tweet in islice(scraper.get_items(), max_tweets//len(hashtags)):
+        for tweet in scraper.get_items():
             if tweet.content not in unique_contents:
+                mined += 1
                 tweets.append(tweet)
                 unique_contents.add(tweet.content)
                 print(f"{len(tweets)} tweets mined in current run!" , end='\r')
+                if mined >= ceil(count/len(hashtags)):
+                    break
     print()
     write_tweets(tweets, filename)
     return tweets
