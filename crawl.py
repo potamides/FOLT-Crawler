@@ -1,15 +1,15 @@
 #!/usr/bin/env python
-import tweepy
-import os
-import csv
+from os import makedirs
+from os.path import join
+from csv import DictWriter
+from snscrape.modules.twitter import TwitterSearchScraper
+from itertools import islice
 
 hashtagfile = "hashtags.txt"
-tweetsfile = "tweets.csv"
-consumer_key = os.getenv("CONSUMER_KEY") or input("Twitter API key: ")
-consumer_secret = os.getenv("CONSUMER_SECRET") or input("Twitter API secret: ")
-
-auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-api = tweepy.API(auth, wait_on_rate_limit=True)
+outputdir = "mined-tweets"
+languages = ["en", "fr", "de", "ar"]
+dates = ["2020-03-01", "2021-09-01"]
+max_tweets = 1000
 
 def read_hashtags(filename):
     hashtags = list()
@@ -18,24 +18,35 @@ def read_hashtags(filename):
             hashtags.append(line.strip().decode())
     return hashtags
 
-def crawl_tweets(hashtags):
-    tweets, instances = list(), set()
+def write_tweets(tweets, filename):
+    with open(filename, "a+", newline='') as csv_file:
+        fieldnames = ["id", "date", "lang", "content"]
+        writer = DictWriter(csv_file, fieldnames=fieldnames)
+        for tweet in tweets:
+            writer.writerow(dict(zip(fieldnames, [tweet.id, tweet.date, tweet.lang, tweet.content])))
 
+def crawl_tweets(hashtags, since=None, until=None):
+    assert since is not None or until is not None
+    makedirs(outputdir, exist_ok=True)
+
+    since = f"since:{since}" if since else None
+    until = f"until:{until}" if until else None
+    langs = f"({' OR '.join(f'lang:{lang}' for lang in languages)})"
+    filter_retweets = "exclude:nativeretweets exclude:retweets"
+
+    filename = join(outputdir, "-".join(filter(None, [since, until])) + ".csv")
+    tweets, unique_contents = list(), set()
     for hashtag in hashtags:
-        for tweet in api.search_tweets(q=hashtag, lang="en", count=100, tweet_mode="extended"):
-            try:
-                if tweet.retweeted_status.full_text not in instances:
-                    tweets.append((tweet.created_at, tweet.retweeted_status.full_text))
-                    instances.add(tweet.retweeted_status.full_text)
-            except AttributeError:  # Not a Retweet
-                if tweet.full_text not in instances:
-                    tweets.append((tweet.created_at, tweet.full_text))
-                    instances.add(tweet.full_text)
-    with open(tweetsfile, 'w', newline='') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        for date, text in tweets:
-            csvwriter.writerow([date, text])
+        scraper = TwitterSearchScraper(query=" ".join(filter(None, [hashtag, since, until, langs, filter_retweets])))
+        for tweet in islice(scraper.get_items(), max_tweets//len(hashtags)):
+            if tweet.content not in unique_contents:
+                tweets.append(tweet)
+                unique_contents.add(tweet.content)
+                print(f"{len(tweets)} tweets mined in current run!" , end='\r')
+    print()
+    write_tweets(tweets, filename)
     return tweets
 
 hashtags = read_hashtags(hashtagfile)
-tweets = crawl_tweets(hashtags)
+print("Pre Covid-19 tweets:", len(crawl_tweets(hashtags, until=dates[0])))
+print("Covid-19 tweets:", len(crawl_tweets(hashtags, since=dates[0], until=dates[1])))
