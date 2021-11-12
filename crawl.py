@@ -9,6 +9,7 @@ hashtagfile = "hashtags.txt"
 outputdir = "mined-tweets"
 languages = ["en", "fr", "de", "ar"]
 dates = ["2020-03-01", "2021-09-01"]
+region = "Europe"
 count = 1000
 
 def read_hashtags(filename):
@@ -19,12 +20,12 @@ def read_hashtags(filename):
     return hashtags
 
 def write_tweets(tweets, filename):
-    with open(filename, "w", newline='') as csv_file:
-        fieldnames = ["id", "date", "lang", "content"]
+    with open(filename, "w", newline='', encoding='utf-8') as csv_file:
+        fieldnames = ["id", "date", "country", "lang", "content"]
         writer = DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
         for tweet in tweets:
-            writer.writerow(dict(zip(fieldnames, [tweet.id, tweet.date, tweet.lang, tweet.content])))
+            writer.writerow(dict(zip(fieldnames, [tweet.id, tweet.date, tweet.place.country, tweet.lang, tweet.content])))
 
 def crawl_tweets(hashtags, since=None, until=None):
     assert since is not None or until is not None
@@ -33,13 +34,14 @@ def crawl_tweets(hashtags, since=None, until=None):
     since = f"since:{since}" if since else None
     until = f"until:{until}" if until else None
     langs = f"({' OR '.join(f'lang:{lang}' for lang in languages)})"
+    near = f"near:{region}"
     filter_retweets = "exclude:nativeretweets exclude:retweets"
 
-    filename = join(outputdir, "-".join(filter(None, [since, until])) + ".csv")
+    filename = join(outputdir, "-".join(filter(None, [since, until])).replace(":", "-") + ".csv")
     tweets, unique_contents = list(), set()
     for hashtag in hashtags:
         mined = 0
-        scraper = TwitterSearchScraper(query=" ".join(filter(None, [hashtag, since, until, langs, filter_retweets])))
+        scraper = TwitterSearchScraper(query=" ".join(filter(None, [hashtag, since, until, langs, near, filter_retweets])))
         for tweet in scraper.get_items():
             if tweet.content not in unique_contents:
                 mined += 1
@@ -53,5 +55,5 @@ def crawl_tweets(hashtags, since=None, until=None):
     return tweets
 
 hashtags = read_hashtags(hashtagfile)
-print("Pre Covid-19 tweets:", len(crawl_tweets(hashtags, until=dates[0])))
-print("Covid-19 tweets:", len(crawl_tweets(hashtags, since=dates[0], until=dates[1])))
+print("Pre-pandemic tweets:", len(crawl_tweets(hashtags, until=dates[0])))
+print("Pandemic tweets:", len(crawl_tweets(hashtags, since=dates[0], until=dates[1])))
