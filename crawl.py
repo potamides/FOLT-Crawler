@@ -39,21 +39,25 @@ def crawl_tweets(hashtags, since=None, until=None):
 
     filename = join(outputdir, "-".join(filter(None, [since, until])).replace(":", "-") + ".csv")
     tweets, unique_contents = list(), set()
-    for hashtag in hashtags:
-        mined = 0
-        scraper = TwitterSearchScraper(query=" ".join(filter(None, [hashtag, since, until, langs, near, filter_retweets])))
-        for tweet in scraper.get_items():
-            if tweet.content not in unique_contents:
-                mined += 1
-                tweets.append(tweet)
-                unique_contents.add(tweet.content)
-                print(f"{len(tweets)} tweets mined in current run!" , end='\r')
-                if mined >= ceil(count/len(hashtags)):
-                    break
+    try:
+        for hashtag in hashtags:
+            mined = 0
+            scraper = TwitterSearchScraper(query=" ".join(filter(None, [hashtag, since, until, langs, near, filter_retweets])))
+            for tweet in scraper.get_items():
+                if tweet.content not in unique_contents:
+                    mined += 1
+                    tweets.append(tweet)
+                    unique_contents.add(tweet.content)
+                    print(f"{len(tweets)} tweets mined in current run!" , end='\r')
+                    if mined >= ceil(count/len(hashtags)):
+                        break
+    except KeyboardInterrupt:
+        pass
     print()
     write_tweets(tweets, filename)
     return tweets
 
-hashtags = read_hashtags(hashtagfile)
-print("Pre-pandemic tweets:", len(crawl_tweets(hashtags, until=dates[0])))
-print("Pandemic tweets:", len(crawl_tweets(hashtags, since=dates[0], until=dates[1])))
+if __name__ == "__main__":
+    hashtags = read_hashtags(hashtagfile)
+    print("Pre-pandemic tweets:", len(crawl_tweets(hashtags, until=dates[0])))
+    print("Pandemic tweets:", len(crawl_tweets(hashtags, since=dates[0], until=dates[1])))
