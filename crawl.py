@@ -25,7 +25,11 @@ def write_tweets(tweets, filename):
         writer = DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
         for tweet in tweets:
-            writer.writerow(dict(zip(fieldnames, [tweet.id, tweet.date, tweet.place.country, tweet.lang, tweet.content])))
+            try:
+                country = tweet.place.country
+            except AttributeError:
+                country = "None"
+            writer.writerow(dict(zip(fieldnames, [tweet.id, tweet.date, country, tweet.lang, tweet.content])))
 
 def crawl_tweets(hashtags, since=None, until=None):
     assert since is not None or until is not None
