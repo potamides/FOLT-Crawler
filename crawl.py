@@ -2,7 +2,9 @@
 from os import makedirs
 from os.path import join
 from csv import DictWriter
-from math import ceil
+from asyncio import run
+from aiostream.stream import merge
+from utils import async_wrap_iter
 from snscrape.modules.twitter import TwitterSearchScraper
 
 hashtagfile = "hashtags.txt"
@@ -31,7 +33,7 @@ def write_tweets(tweets, filename):
                 country = "None"
             writer.writerow(dict(zip(fieldnames, [tweet.id, tweet.date, country, tweet.lang, tweet.content])))
 
-def crawl_tweets(hashtags, since=None, until=None):
+async def crawl_tweets(hashtags, since=None, until=None):
     assert since is not None or until is not None
     makedirs(outputdir, exist_ok=True)
 
@@ -42,18 +44,19 @@ def crawl_tweets(hashtags, since=None, until=None):
     filter_retweets = "exclude:nativeretweets exclude:retweets"
 
     filename = join(outputdir, "-".join(filter(None, [since, until])).replace(":", "-") + ".csv")
-    tweets, unique_contents = list(), set()
+    scrapers, tweets, unique_contents = list(), list(), set()
+
+    for hashtag in hashtags:
+        scrapers.append(TwitterSearchScraper(query=" ".join(filter(None, [hashtag, since, until, langs, near, filter_retweets]))))
+
     try:
-        for hashtag in hashtags:
-            mined = 0
-            scraper = TwitterSearchScraper(query=" ".join(filter(None, [hashtag, since, until, langs, near, filter_retweets])))
-            for tweet in scraper.get_items():
+        async with merge(*[async_wrap_iter(scraper.get_items()) for scraper in scrapers]).stream() as items:
+            async for tweet in items:
                 if tweet.content not in unique_contents:
-                    mined += 1
                     tweets.append(tweet)
                     unique_contents.add(tweet.content)
                     print(f"{len(tweets)} tweets mined in current run!" , end='\r')
-                    if mined >= ceil(count/len(hashtags)):
+                    if len(tweets) >= count:
                         break
     except KeyboardInterrupt:
         pass
@@ -63,5 +66,5 @@ def crawl_tweets(hashtags, since=None, until=None):
 
 if __name__ == "__main__":
     hashtags = read_hashtags(hashtagfile)
-    print("Pre-pandemic tweets:", len(crawl_tweets(hashtags, until=dates[0])))
-    print("Pandemic tweets:", len(crawl_tweets(hashtags, since=dates[0], until=dates[1])))
+    print("Pre-pandemic tweets:", len(run(crawl_tweets(hashtags, until=dates[0]))))
+    print("Pandemic tweets:", len(run(crawl_tweets(hashtags, since=dates[0], until=dates[1]))))
