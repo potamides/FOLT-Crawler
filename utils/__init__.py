@@ -28,6 +28,8 @@ def async_wrap_iter(it):
                 # This runs outside the event loop thread, so we
                 # must use thread-safe API to talk to the queue.
                 asyncio.run_coroutine_threadsafe(q.put(item), loop).result()
+        except KeyboardInterrupt:
+            pass
         except Exception as e:
             exception = e
         finally:
