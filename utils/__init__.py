@@ -1,40 +1,44 @@
-# based on https://stackoverflow.com/a/62297994
-import asyncio
-import threading
+from threading import Thread
+from queue import Queue
+from contextlib import AbstractContextManager
 
-def async_wrap_iter(it):
-    """Wrap blocking iterator into an asynchronous one"""
-    loop = asyncio.get_event_loop()
-    q = asyncio.Queue(1)
-    exception = None
-    _END = object()
+class ParallelMerge(AbstractContextManager):
+    _quit = False
+    _finished_threads = 0
 
-    async def yield_queue_items():
-        while True:
-            next_item = await q.get()
-            if next_item is _END:
-                break
-            yield next_item
-        if exception is not None:
-            # the iterator has raised, propagate the exception
-            raise exception
+    def __init__(self, *iterators, sentinel=object(), queue_maxsize=0, daemon=False):
+        self._sentinel = sentinel
+        self._queue = Queue(maxsize=queue_maxsize)
+        self._threads = [Thread(name=repr(it), target=self._run, args=[it, idx]) for idx, it in enumerate(iterators)]
+        for thread in self._threads:
+            thread.daemon = daemon
 
-    def iter_to_queue():
-        nonlocal exception
+    def _run(self, iterator, idx):
         try:
-            for item in it:
-                if loop.is_closed():
+            for value in iterator:
+                if self._quit:
                     break
-                # This runs outside the event loop thread, so we
-                # must use thread-safe API to talk to the queue.
-                asyncio.run_coroutine_threadsafe(q.put(item), loop).result()
-        except KeyboardInterrupt:
-            pass
-        except Exception as e:
-            exception = e
+                self._queue.put(value)
+                print(idx)
         finally:
-            if not loop.is_closed:
-                asyncio.run_coroutine_threadsafe(q.put(_END), loop).result()
+            self._queue.put(self._sentinel)
 
-    threading.Thread(target=iter_to_queue).start()
-    return yield_queue_items()
+    def __iter__(self):
+        while self._finished_threads < len(self._threads):
+            value = self._queue.get()
+            if value == self._sentinel:
+                self._finished_threads += 1
+            else:
+                yield value
+
+    def __enter__(self):
+        for thread in self._threads:
+            thread.start()
+        return self
+
+    def __exit__(self, *_):
+        self._quit = True
+        for _ in self:
+            pass
+        for thread in self._threads:
+            thread.join()

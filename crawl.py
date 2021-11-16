@@ -2,9 +2,7 @@
 from os import makedirs
 from os.path import join
 from csv import DictWriter
-from asyncio import run
-from aiostream.stream import merge
-from utils import async_wrap_iter
+from utils import ParallelMerge
 from snscrape.modules.twitter import TwitterSearchScraper
 
 hashtagfile = "hashtags.txt"
@@ -33,7 +31,7 @@ def write_tweets(tweets, filename):
                 country = "None"
             writer.writerow(dict(zip(fieldnames, [tweet.id, tweet.date, country, tweet.lang, tweet.content])))
 
-async def crawl_tweets(hashtags, since=None, until=None):
+def crawl_tweets(hashtags, since=None, until=None):
     assert since is not None or until is not None
     makedirs(outputdir, exist_ok=True)
 
@@ -50,8 +48,8 @@ async def crawl_tweets(hashtags, since=None, until=None):
         scrapers.append(TwitterSearchScraper(query=" ".join(filter(None, [hashtag, since, until, langs, near, filter_retweets]))))
 
     try:
-        async with merge(*[async_wrap_iter(scraper.get_items()) for scraper in scrapers]).stream() as items:
-            async for tweet in items:
+        with ParallelMerge(*[scraper.get_items() for scraper in scrapers]) as items:
+            for tweet in items:
                 if tweet.content not in unique_contents:
                     tweets.append(tweet)
                     unique_contents.add(tweet.content)
@@ -66,5 +64,5 @@ async def crawl_tweets(hashtags, since=None, until=None):
 
 if __name__ == "__main__":
     hashtags = read_hashtags(hashtagfile)
-    print("Pre-pandemic tweets:", len(run(crawl_tweets(hashtags, until=dates[0]))))
-    print("Pandemic tweets:", len(run(crawl_tweets(hashtags, since=dates[0], until=dates[1]))))
+    print("Pre-pandemic tweets:", len(crawl_tweets(hashtags, until=dates[0])))
+    print("Pandemic tweets:", len(crawl_tweets(hashtags, since=dates[0], until=dates[1])))
