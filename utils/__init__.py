@@ -9,17 +9,16 @@ class ParallelMerge(AbstractContextManager):
     def __init__(self, *iterators, sentinel=object(), queue_maxsize=0, daemon=False):
         self._sentinel = sentinel
         self._queue = Queue(maxsize=queue_maxsize)
-        self._threads = [Thread(name=repr(it), target=self._run, args=[it, idx]) for idx, it in enumerate(iterators)]
+        self._threads = [Thread(name=repr(it), target=self._run, args=[it]) for it in iterators]
         for thread in self._threads:
             thread.daemon = daemon
 
-    def _run(self, iterator, idx):
+    def _run(self, iterator):
         try:
             for value in iterator:
                 if self._quit:
                     break
                 self._queue.put(value)
-                print(idx)
         finally:
             self._queue.put(self._sentinel)
 
