@@ -7,7 +7,7 @@ from snscrape.modules.twitter import TwitterSearchScraper
 
 hashtagfile = "hashtags.txt"
 excludefile = "exclude.txt"
-read_exclude, write_exclude = False, False
+read_exclude, write_exclude = True, True
 outputdir = "mined-tweets"
 languages = ["en", "fr", "de", "ar"]
 dates = ["2020-03-01", "2021-09-01"]
@@ -30,7 +30,10 @@ def write_tweets(tweets, filename):
             try:
                 country = tweet.place.country
             except AttributeError:
-                country = "None"
+                try:
+                    country = tweet.country
+                except AttributeError:
+                    country = "None"
             writer.writerow(dict(zip(fieldnames, [tweet.id, tweet.date, country, tweet.lang, tweet.content])))
 
 def read_tweets(filename):
