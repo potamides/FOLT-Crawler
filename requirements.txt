@@ -1,1 +1,2 @@
 git+https://github.com/JustAnotherArchivist/snscrape.git
+python-dateutil==2.8.2
