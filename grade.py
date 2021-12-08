@@ -7,7 +7,7 @@ def read_predictions(filename):
     predictions = list()
     with open(filename, "rb") as f:
         for line in f:
-            predictions.append(int(line.strip()))
+            predictions.append(int(line.strip().decode('utf-8-sig')))
     return predictions
 
 assert len(argv[1:]) == 3, "Only two arguments allowed!"
