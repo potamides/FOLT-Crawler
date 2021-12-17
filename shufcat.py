@@ -10,8 +10,9 @@ class AttrDict(dict):
 
 input_, output = argv[1:-1], argv[-1]
 
-tweets = list()
-for file in input_:
-    tweets.extend(read_tweets(file))
-shuffle(tweets)
-write_tweets([AttrDict(tweet) for tweet in tweets], output)
+if __name__ == "__main__":
+    tweets = list()
+    for file in input_:
+        tweets.extend(read_tweets(file))
+    shuffle(tweets)
+    write_tweets([AttrDict(tweet) for tweet in tweets], output)

@@ -21,20 +21,18 @@ def read_hashtags(filename):
             hashtags.append(line.strip().decode())
     return hashtags
 
-def write_tweets(tweets, filename):
+def write_tweets(tweets, filename, fieldnames=["id", "date", "country", "lang", "content"]):
     with open(filename, "w", newline='', encoding='utf-8') as csv_file:
-        fieldnames = ["id", "date", "country", "lang", "content"]
         writer = DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
         for tweet in tweets:
-            try:
-                country = tweet.place.country
-            except AttributeError:
+            if not hasattr(tweet, "country"):
                 try:
-                    country = tweet.country
+                    tweet.country = tweet.place.country
                 except AttributeError:
-                    country = "None"
-            writer.writerow(dict(zip(fieldnames, [tweet.id, tweet.date, country, tweet.lang, tweet.content])))
+                    tweet.country = "None"
+
+            writer.writerow(dict(zip(fieldnames, [getattr(tweet, attr) for attr in fieldnames])))
 
 def read_tweets(filename):
     with open(filename, newline='', encoding='utf-8') as csvfile:
