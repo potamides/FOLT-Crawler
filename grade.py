@@ -19,7 +19,7 @@ if __name__ == "__main__":
     id2pred = {tweet['id']:pred for tweet, pred in zip(submission_content, prediction_content)}
 
     assert len(submission_content) == len(prediction_content), "Wrong amount of annotations!"
-    assert 0 <= min(id2pred.values()) <= max(id2pred.values()) <= 2, "Invalid category"
+    assert 0 <= min(id2pred.values()) <= max(id2pred.values()) <= 2, "Invalid category!"
 
     labels, predictions = list(), list()
     for id_, pred in id2pred.items():
@@ -27,4 +27,5 @@ if __name__ == "__main__":
             labels.append(id2labels[id_])
             predictions.append(pred)
 
+    assert len(labels) == len(id2labels), "Not all gold tweets present in submission file!"
     print(f"Cohen's kappa: {cohen_kappa_score(labels, predictions)}")
