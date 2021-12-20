@@ -29,3 +29,4 @@ if __name__ == "__main__":
 
     assert len(labels) == len(id2labels), "Not all gold tweets present in submission file!"
     print(f"Cohen's kappa: {cohen_kappa_score(labels, predictions)}")
+    print(f"Weighted Cohen's kappa: {cohen_kappa_score(labels, predictions, weights='linear')}")
